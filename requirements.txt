@@ -1,0 +1,32 @@
+# ── Tier 1 & 2: always-on, zero API (REQUIRED) ─────────────────────────────
+psutil>=5.9.0           # system monitoring
+rapidfuzz>=3.0.0        # fuzzy NLP matching (fast, pure Python fallback exists)
+
+# ── Speech: TTS offline (install ONE) ────────────────────────────────────────
+pyttsx3>=2.90           # RECOMMENDED: offline TTS, works out of the box
+# espeak-ng installed via: sudo apt install espeak-ng
+
+# ── Speech: STT offline (install ONE) ────────────────────────────────────────
+vosk>=0.3.45            # RECOMMENDED: offline STT, small model ~50MB
+sounddevice>=0.4.6      # mic input (shared by vosk + whisper)
+# After install, download model: python -m cogman_tools download-vosk
+
+# ── Speech: STT alternative (more accurate, larger) ─────────────────────────
+# openai-whisper>=20231117
+# scipy>=1.11.0          # needed by whisper wav writing
+
+# ── Memory: vector search (optional, improves recall) ───────────────────────
+# chromadb>=0.4.0
+
+# ── Tier 3: Local LLM — no API key, fully offline ────────────────────────────
+# Install Ollama: curl -fsSL https://ollama.ai/install.sh | sh
+# Pull a model:   ollama pull mistral   (4GB) | ollama pull phi3 (2GB)
+# cogman auto-detects Ollama at localhost:11434
+
+# ── Tier 4: Cloud LLM (optional, rich features) ─────────────────────────────
+# anthropic>=0.40.0
+# Set env:  export ANTHROPIC_API_KEY=your_key
+
+# ── REST API (optional) ───────────────────────────────────────────────────────
+# fastapi>=0.110.0
+# uvicorn>=0.27.0

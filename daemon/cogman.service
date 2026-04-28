@@ -1,0 +1,18 @@
+[Unit]
+Description=cogman Linux AI Assistant Daemon
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/void/projects/cogman
+ExecStart=/usr/bin/python3 /home/%i/void/projects/cogman/main.py --api
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=COGMAN_API=true
+EnvironmentFile=-/home/%i/.config/cogman/env
+
+[Install]
+WantedBy=default.target

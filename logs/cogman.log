@@ -1,0 +1,2 @@
+2026-04-27 11:36:17,461 [cogman.memory] WARNING: chromadb not installed — vector search disabled
+2026-04-27 11:36:17,461 [cogman.orchestrator] WARNING: ANTHROPIC_API_KEY not set — LLM fallback disabled
