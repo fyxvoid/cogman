@@ -1,111 +1,223 @@
 """
-Orchestrator — 4-tier routing, local-first, no API required by default.
+Orchestrator — OpenClaw 7-stage pipeline + Pi Agent Core + Self-learning.
 
-Tier 1: Fast regex rules          (instant, zero deps, always on)
-Tier 2: Local NLP                 (keyword + fuzzy, zero deps, always on)
-Tier 3: Local LLM via Ollama      (optional, fully offline)
-Tier 4: Cloud LLM via Anthropic   (optional, requires API key)
-
-Fallback: Suggest closest matching commands.
+Stage 1: Normalize   — clean input, detect slash commands
+Stage 2: Route       — Tier 1 regex → Tier 2 NLP → Pi Agent
+Stage 3: Assemble    — memory + environment context + skills
+Stage 4: Plugin hook — pre_llm_call
+Stage 5: Infer       — Pi Agent Core (multi-provider LLM + tool calling)
+Stage 6: ReAct       — parallel tool execution (inside PiAgentCore)
+Stage 7: Persist     — save to memory + session + self-learn
 """
 import logging
-from typing import Optional
+import re
+import shlex
+from typing import Dict, List, Optional
+
+
+def _parse_tool_args(text: str) -> Dict:
+    """
+    Parse tool arguments from text into a dict.
+    Handles: key=value, key="multi word", key='multi word', bare positional.
+
+    Examples:
+      "city=London"                → {"city": "London"}
+      'text=hello world target=es' → {"text": "hello world", "target": "es"}
+      'action=add text=some note'  → {"action": "add", "text": "some note"}
+    """
+    if not text:
+        return {}
+
+    result = {}
+    # Find all key= positions so we know where each value ends
+    key_positions = [(m.start(), m.group(1)) for m in re.finditer(r'(\w+)=', text)]
+
+    if not key_positions:
+        # No key=value pairs at all — treat as positional 'args'
+        return {"args": text.strip()}
+
+    for i, (pos, key) in enumerate(key_positions):
+        val_start = pos + len(key) + 1  # after "key="
+        val_end = key_positions[i + 1][0] if i + 1 < len(key_positions) else len(text)
+        raw = text[val_start:val_end].strip()
+        # Strip surrounding quotes
+        if (raw.startswith('"') and raw.endswith('"')) or \
+           (raw.startswith("'") and raw.endswith("'")):
+            raw = raw[1:-1]
+        result[key] = raw
+
+    return result
 
 from core.intent_parser import parse_fast
 from core.local_nlp import parse_keywords, parse_fuzzy, suggest_commands
 from core.tool_registry import ToolRegistry
-from core.memory import Memory
 from core.safety import log_action
-from core.config import (
-    ANTHROPIC_API_KEY, LLM_MODEL, LLM_MAX_TOKENS,
-    SYSTEM_PROMPT, OLLAMA_HOST, OLLAMA_MODEL, ENABLE_LOCAL_LLM,
-)
+from core.config import SYSTEM_PROMPT
+from agents.providers import ProviderRegistry
+from agents.loop import PiAgentCore
+from memory.context import EnvironmentContext
 
 log = logging.getLogger("cogman.orchestrator")
 
 
 class Orchestrator:
-    def __init__(self, registry: ToolRegistry, memory: Memory):
+    def __init__(self, registry: ToolRegistry, memory):
         self.registry = registry
         self.memory = memory
-        self._anthropic: Optional[object] = None
-        self._ollama_ok: Optional[bool] = None
-        self._init_clients()
 
-    def _init_clients(self):
-        if ANTHROPIC_API_KEY:
-            try:
-                import anthropic
-                self._anthropic = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-                log.info("Cloud LLM (Anthropic) available")
-            except ImportError:
-                log.debug("anthropic package not installed — cloud LLM disabled")
-            except Exception as e:
-                log.warning("Anthropic init failed: %s", e)
-        else:
-            log.info("No ANTHROPIC_API_KEY — running fully local")
+        # Provider registry + Pi Agent Core
+        self._providers = ProviderRegistry()
+        self.pi: Optional[PiAgentCore] = None
+        self._init_pi()
 
-    def _check_ollama(self) -> bool:
-        if self._ollama_ok is not None:
-            return self._ollama_ok
-        if not ENABLE_LOCAL_LLM:
-            self._ollama_ok = False
-            return False
+        # Environment context (injected into every LLM call)
+        self._env_ctx = EnvironmentContext()
+
+        # Extensions (wired up by main after construction)
+        self.plugin_engine = None
+        self.skill_registry = None
+        self.session_mgr = None
+        self.dispatcher = None
+        self.learner = None    # PostInteractionLearner
+        self.evolver = None    # SkillEvolver
+
+        # Event listeners (for rich TUI streaming display)
+        self._event_listeners = []
+
+        # Track tools used in current turn (for pattern learning)
+        self._current_turn_tools: List[str] = []
+
+    def _init_pi(self):
         try:
-            import urllib.request
-            with urllib.request.urlopen(f"{OLLAMA_HOST}/api/tags", timeout=2) as r:
-                self._ollama_ok = r.status == 200
-        except Exception:
-            self._ollama_ok = False
-        if self._ollama_ok:
-            log.info("Local LLM (Ollama) available at %s — model: %s", OLLAMA_HOST, OLLAMA_MODEL)
-        else:
-            log.debug("Ollama not reachable at %s", OLLAMA_HOST)
-        return self._ollama_ok
+            self.pi = PiAgentCore(
+                registry=self.registry,
+                memory=self.memory,
+                system_prompt=SYSTEM_PROMPT,
+                provider_registry=self._providers,
+                parallel_tools=True,
+                max_tool_turns=25,
+            )
+            self.pi.subscribe(self._on_pi_event)
+            log.info("Pi Agent Core ready. Providers: %s", self._providers.list_available())
+        except Exception as e:
+            log.warning("Pi Agent Core init failed: %s", e)
 
-    # ── Public entry point ───────────────────────────────────────────────────
+    def _on_pi_event(self, event):
+        from agents.events import ToolExecutionEndEvent
+        if isinstance(event, ToolExecutionEndEvent):
+            self._current_turn_tools.append(event.tool_name)
+        for fn in self._event_listeners:
+            try:
+                fn(event)
+            except Exception:
+                pass
+
+    def add_event_listener(self, fn):
+        self._event_listeners.append(fn)
+
+    # ── Main process ──────────────────────────────────────────────────────────
 
     def process(self, user_input: str) -> str:
         user_input = user_input.strip()
         if not user_input:
             return ""
 
-        self.memory.add_message("user", user_input)
+        self._current_turn_tools = []
 
-        # Tier 1: Fast regex rules (instant)
+        # Stage 1: Slash command detection
+        if user_input.startswith("/") and self.dispatcher:
+            from core.command_registry import resolve_command
+            result = resolve_command(user_input)
+            if result:
+                cmd, args = result
+                response = self.dispatcher.dispatch(cmd, args)
+                if response == "CLEAR_SCREEN":
+                    import os; os.system("clear")
+                    return ""
+                if response and response.startswith("RETRY:"):
+                    user_input = response[6:]
+                elif response is not None:
+                    return response or ""
+
+        # Plugin: check extra commands
+        if self.plugin_engine and user_input.startswith("/"):
+            name = user_input[1:].split()[0]
+            extra = self.plugin_engine.get_extra_command(name)
+            if extra:
+                handler, _, _ = extra
+                try:
+                    return str(handler(user_input))
+                except Exception as e:
+                    return f"Plugin command error: {e}"
+
+        # Stage 1b: Direct skill/tool call (skill_name or skill_name arg=val ...)
+        direct = self._try_direct_tool(user_input)
+        if direct is not None:
+            self.memory.add_message("user", user_input)
+            self.memory.add_message("assistant", direct)
+            return direct
+
+        # Stage 2: Add to memory
+        self.memory.add_message("user", user_input)
+        if self.session_mgr:
+            self.session_mgr.add_message("user", user_input)
+
+        # Tier 1 — fast regex
         intent = parse_fast(user_input)
         if intent:
-            log.debug("Tier 1 (rule): %s", intent)
+            log.debug("Tier 1: %s", intent)
             return self._run_intent(intent)
 
-        # Tier 2: Local NLP — keyword match
+        # Tier 2a — keyword NLP
         intent = parse_keywords(user_input)
         if intent and intent.confidence >= 0.5:
-            log.debug("Tier 2a (keyword): %s", intent)
+            log.debug("Tier 2a: %s", intent)
             return self._run_intent(intent)
 
-        # Tier 2b: Fuzzy match
+        # Tier 2b — fuzzy NLP
         intent = parse_fuzzy(user_input, self.registry)
         if intent and intent.confidence >= 0.55:
-            log.debug("Tier 2b (fuzzy): %s", intent)
+            log.debug("Tier 2b: %s", intent)
             return self._run_intent(intent)
 
-        # Tier 3: Local LLM (Ollama — offline)
-        if self._check_ollama():
-            log.debug("Tier 3: routing to local LLM")
-            result = self._ollama_route(user_input)
-            if result:
-                return result
+        # Stage 3: Assemble environment context
+        env_context = self._env_ctx.get()
 
-        # Tier 4: Cloud LLM (Anthropic)
-        if self._anthropic:
-            log.debug("Tier 4: routing to cloud LLM")
-            return self._anthropic_route(user_input)
+        # Stage 4: Plugin pre_llm hook
+        if self.plugin_engine:
+            hook_result = self.plugin_engine.invoke_hook_first(
+                "pre_llm_call", user_input=user_input, memory=self.memory,
+            )
+            if isinstance(hook_result, str):
+                return hook_result
 
-        # Fallback: suggest similar commands
-        return self._suggest_fallback(user_input)
+        # Stage 5-6: Pi Agent Core (infer + ReAct tool loop)
+        if self.pi:
+            log.debug("Tier 3: Pi Agent (%s)", self._providers.list_available())
+            response = self.pi.process(user_input, extra_context=env_context)
+        else:
+            response = self._suggest_fallback(user_input)
 
-    # ── Intent execution ─────────────────────────────────────────────────────
+        # Stage 7: Persist + self-learn
+        if self.session_mgr and response:
+            self.session_mgr.add_message("assistant", response)
+
+        if self.plugin_engine:
+            self.plugin_engine.invoke_hook("post_llm_call", user_input=user_input, response=response)
+
+        # Self-learning: extract learnings in background
+        if self.learner and response:
+            self.learner.learn_from(user_input, response, list(self._current_turn_tools))
+
+        # Auto-detect skill creation in LLM response
+        if self.skill_registry and "```python" in response and "# skill:" in response:
+            self._try_save_skill_from_response(response)
+
+        # Trigger evolution check if tools were used heavily
+        if self.evolver and len(self._current_turn_tools) >= 3:
+            self.evolver.check_evolve_now()
+
+        return response
 
     def _run_intent(self, intent) -> str:
         result = self.registry.run(intent.tool, intent.args)
@@ -113,132 +225,131 @@ class Orchestrator:
         self.memory.add_message("assistant", result)
         return result
 
+    def _try_direct_tool(self, user_input: str):
+        """
+        Detect bare tool/skill calls typed directly:
+          skill_syshealth
+          skill_weather city=Tokyo
+          run_python code="print(1+1)"
+        Returns result string or None if not a direct tool call.
+        """
+        import re
+        # Must start with a known tool name (word chars + underscore)
+        m = re.match(r'^([a-z][a-z0-9_]+)(\s+.*)?$', user_input.strip(), re.IGNORECASE)
+        if not m:
+            return None
+        tool_name = m.group(1)
+        if not self.registry.get(tool_name):
+            return None
+        # Parse key=value args from the rest
+        args = {}
+        rest = (m.group(2) or "").strip()
+        if rest:
+            args = _parse_tool_args(rest)
+            # If no key=value pairs found, detect first param from underlying skill func
+            if "args" in args and len(args) == 1:
+                try:
+                    import inspect
+                    # For skills, the real func is the underlying skill.func, not the wrapper
+                    if self.skill_registry:
+                        skill = self.skill_registry.get(tool_name)
+                        if skill and skill.func:
+                            first_param = next(iter(inspect.signature(skill.func).parameters), "action")
+                            args = {first_param: args["args"]}
+                except Exception:
+                    pass
+        log.debug("Direct tool call: %s(%s)", tool_name, args)
+        return self.registry.run(tool_name, args)
+
     def _suggest_fallback(self, user_input: str) -> str:
         suggestions = suggest_commands(user_input, self.registry, top_n=3)
         lines = [f"I didn't understand: {user_input!r}"]
         if suggestions:
-            lines.append("\nDid you mean one of these?")
+            lines.append("Did you mean:")
             for s in suggestions:
                 tool = self.registry.get(s)
                 if tool:
                     lines.append(f"  • {s}: {tool.description}")
-        lines.append("\nType 'help' to list all commands.")
+        lines.append("Type /help for commands or ask me anything.")
         result = "\n".join(lines)
         self.memory.add_message("assistant", result)
         return result
 
-    # ── Tier 3: Ollama (local LLM) ───────────────────────────────────────────
-
-    def _ollama_route(self, user_input: str) -> Optional[str]:
-        import json, urllib.request
-
-        tools = self.registry.all_schemas()
-        memories = self.memory.recall(user_input[:100])
-        mem_block = ("\n\nRelevant memories:\n" + "\n".join(f"- {m}" for m in memories)) if memories else ""
-
-        messages = list(self.memory.get_context())
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT + mem_block},
-                *messages,
-            ],
-            "stream": False,
-            "options": {"temperature": 0.1, "num_predict": 512},
-        }
-
+    def _try_save_skill_from_response(self, response: str):
+        import re
+        match = re.search(r"```python\s*(# skill:.+?)```", response, re.DOTALL)
+        if not match:
+            return
+        code = match.group(1).strip()
+        name_m = re.search(r"# skill:\s*(\S+)", code)
+        if not name_m:
+            return
+        name = name_m.group(1)
+        desc_m = re.search(r"# description:\s*(.+)", code)
+        description = desc_m.group(1).strip() if desc_m else name
+        tags_m = re.search(r"# tags:\s*(.+)", code)
+        tags = [t.strip() for t in tags_m.group(1).split(",")] if tags_m else []
+        body_lines = [l for l in code.splitlines() if not l.startswith("#")]
+        body = "\n".join(body_lines).strip()
         try:
-            data = json.dumps(payload).encode()
-            req = urllib.request.Request(
-                f"{OLLAMA_HOST}/api/chat",
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read())
-            text = result.get("message", {}).get("content", "").strip()
-            if text:
-                self.memory.add_message("assistant", text)
-                return text
+            skill = self.skill_registry.create_skill(name, description, body, tags)
+            if skill:
+                self.skill_registry._register_tool(skill, self.registry)
+                log.info("Auto-saved new skill: %s", name)
         except Exception as e:
-            log.warning("Ollama request failed: %s", e)
+            log.debug("Auto-skill save failed: %s", e)
 
-        return None
+    # ── Status ────────────────────────────────────────────────────────────────
 
-    # ── Tier 4: Anthropic (cloud LLM) ────────────────────────────────────────
+    def print_status(self) -> str:
+        from speech.tts import get_tts_backend, is_tts_available
+        from speech.stt import get_stt_backend, is_stt_available
 
-    def _anthropic_route(self, user_input: str) -> str:
-        import anthropic
+        n_tools   = len(self.registry.list_names())
+        n_plugins = len(self.plugin_engine.loaded_names) if self.plugin_engine else 0
+        n_skills  = len(self.skill_registry.list()) if self.skill_registry else 0
+        n_builtin = sum(1 for s in (self.skill_registry.list() if self.skill_registry else []) if getattr(s, 'is_builtin', False))
 
-        memories = self.memory.recall(user_input[:100])
-        mem_block = ("\n\nRelevant memories:\n" + "\n".join(f"- {m}" for m in memories)) if memories else ""
-        system = SYSTEM_PROMPT + mem_block
-        messages = list(self.memory.get_context())
-        tools = self.registry.all_schemas()
+        env = self._env_ctx.get()
 
-        try:
-            response = self._anthropic.messages.create(
-                model=LLM_MODEL,
-                max_tokens=LLM_MAX_TOKENS,
-                system=system,
-                tools=tools,
-                messages=messages,
-            )
-        except anthropic.AuthenticationError:
-            return "Authentication failed — check your ANTHROPIC_API_KEY."
-        except anthropic.RateLimitError:
-            return "Rate limited — please wait a moment."
-        except Exception as e:
-            log.exception("Anthropic call failed")
-            return f"LLM error: {e}"
+        lines = [
+            "─" * 62,
+            " cogman v2  ·  Pi + OpenClaw + Hermes",
+            "─" * 62,
+            f" Tools      : {n_tools}  |  Plugins: {n_plugins}  |  Skills: {n_skills} ({n_builtin} builtin)",
+            "",
+            " LLM Providers:",
+            self._providers.summary(),
+            "",
+            " Routing Tiers:",
+            "  [✓] Tier 1  Regex rules (instant)",
+            "  [✓] Tier 2  Local NLP (keyword + fuzzy)",
+            f"  [{'✓' if self.pi else '✗'}] Tier 3  Pi Agent Core (multi-provider)",
+            "",
+            " Self-learning:",
+            f"  Learner : {'active' if self.learner else 'not initialized'}",
+            f"  Evolver : {'active' if self.evolver else 'not initialized'}",
+            "",
+            " Voice:",
+            f"  TTS: {get_tts_backend()}" + (" (audio)" if is_tts_available() else " (print)"),
+            f"  STT: {get_stt_backend()}" + (" (mic)" if is_stt_available() else " (keyboard)"),
+            "",
+            " Connections:",
+            f"  Session : {'✓ FTS5' if self.session_mgr else '✗'}",
+            f"  Gateway : Telegram · Discord · Slack · Webhook  (--gateway)",
+            "",
+            " Environment:",
+        ]
+        for line in env.splitlines():
+            if line and not line.startswith("<"):
+                lines.append(f"  {line}")
+        lines.append("─" * 62)
+        return "\n".join(lines)
 
-        return self._handle_anthropic_response(response, messages, system, tools)
+    def interrupt(self):
+        if self.pi:
+            self.pi.interrupt()
 
-    def _handle_anthropic_response(self, response, messages, system, tools) -> str:
-        final_text = ""
-
-        while True:
-            tool_uses = [b for b in response.content if b.type == "tool_use"]
-
-            if not tool_uses:
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        final_text = block.text
-                break
-
-            tool_results = []
-            for tu in tool_uses:
-                log.info("LLM calling tool: %s(%s)", tu.name, tu.input)
-                result = self.registry.run(tu.name, tu.input)
-                log_action(tu.name, tu.input, result)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tu.id,
-                    "content": result,
-                })
-
-            messages = messages + [
-                {"role": "assistant", "content": response.content},
-                {"role": "user", "content": tool_results},
-            ]
-
-            try:
-                response = self._anthropic.messages.create(
-                    model=LLM_MODEL,
-                    max_tokens=LLM_MAX_TOKENS,
-                    system=system,
-                    tools=tools,
-                    messages=messages,
-                )
-            except Exception as e:
-                return f"LLM continuation error: {e}"
-
-            if response.stop_reason == "end_turn":
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        final_text = block.text
-                break
-
-        self.memory.add_message("assistant", final_text or "(done)")
-        return final_text or "(Task completed)"
+    def _check_ollama(self) -> bool:
+        p = self._providers.get("ollama")
+        return p.is_available() if p else False

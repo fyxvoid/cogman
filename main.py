@@ -1,38 +1,45 @@
 #!/usr/bin/env python3
 """
-cogman — Jarvis-style Linux AI Assistant
-
-Fully autonomous. No API key needed by default.
+cogman — Self-learning, self-evolving Linux AI Assistant
+Powered by: Pi Agent Core · OpenClaw Gateway · Hermes Skills/Plugins
 
 Modes:
   python main.py              → interactive CLI
-  python main.py --voice      → Jarvis voice mode (wake word: "Hey cogman")
+  python main.py --voice      → voice mode (wake word: "Hey cogman")
+  python main.py --gateway    → multi-channel (Telegram/Discord/Slack/Webhook)
   python main.py --api        → REST API server
-  python main.py -c "cmd"     → single command, print result, exit
+  python main.py -c "cmd"     → single command, exit
   python main.py --setup      → download offline speech models
-  python main.py --status     → show backend status (tiers active)
+  python main.py --status     → full system status
 
-Tiers (no config needed for 1 & 2):
-  Tier 1: Regex rules    — instant, always on
-  Tier 2: Local NLP      — keyword + fuzzy, always on
-  Tier 3: Local LLM      — set COGMAN_LOCAL_LLM=true + install Ollama
-  Tier 4: Cloud LLM      — set ANTHROPIC_API_KEY
+LLM Providers (set any env var to enable):
+  ANTHROPIC_API_KEY   OPENAI_API_KEY   GROQ_API_KEY   GEMINI_API_KEY
+  COGMAN_LOCAL_LLM=true + ollama → fully offline
 """
-import sys
 import os
+import sys
 import argparse
 import logging
 import signal
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 from core.config import (
-    ASSISTANT_NAME, VOICE_ENABLED, API_HOST, API_PORT,
-    LOG_DIR, ANTHROPIC_API_KEY, ENABLE_LOCAL_LLM, OLLAMA_HOST, OLLAMA_MODEL,
+    ASSISTANT_NAME, VOICE_ENABLED, API_HOST, API_PORT, LOG_DIR,
+    ENABLE_PROJECT_PLUGINS, SKILLS_DIR,
 )
-from core.memory import Memory
+from memory.manager import Memory
 from core.tool_registry import ToolRegistry
 from core.orchestrator import Orchestrator
+from core.command_registry import CommandDispatcher
+from core.plugin_engine import PluginEngine
+from skills.registry import SkillRegistry
+from core.session import SessionManager
+from learning.learner import PostInteractionLearner
+from learning.evolver import SkillEvolver
+
+# Tools
 from tools.system_tools import register_system_tools
 from tools.file_tools import register_file_tools
 from tools.web_tools import register_web_tools
@@ -49,10 +56,14 @@ from tools.text_tools import register_text_tools
 from tools.docker_tools import register_docker_tools
 from tools.system_info_tools import register_system_info_tools
 from tools.misc_tools import register_misc_tools
+from tools.browser_tools import register_browser_tools
+from tools.code_tools import register_code_tools
+from tools.image_tools import register_image_tools
 
 
 def setup_logging(debug: bool = False):
     level = logging.DEBUG if debug else logging.WARNING
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -62,10 +73,12 @@ def setup_logging(debug: bool = False):
     )
 
 
-def build_agent() -> tuple[Orchestrator, Memory, ToolRegistry]:
-    memory = Memory()
+def build_agent():
+    """Construct the full cogman agent stack."""
+    memory   = Memory()
     registry = ToolRegistry()
 
+    # Register all tools
     register_system_tools(registry)
     register_file_tools(registry)
     register_web_tools(registry)
@@ -82,61 +95,138 @@ def build_agent() -> tuple[Orchestrator, Memory, ToolRegistry]:
     register_docker_tools(registry)
     register_system_info_tools(registry)
     register_misc_tools(registry)
+    register_browser_tools(registry)
+    register_code_tools(registry)
+    register_image_tools(registry)
 
+    # Core orchestrator (Pi Agent + 7-stage pipeline + env context)
     orchestrator = Orchestrator(registry, memory)
-    return orchestrator, memory, registry
 
+    # Plugin engine (Hermes-style, loads from ~/.cogman/plugins/)
+    plugin_engine = PluginEngine(registry, allow_project_plugins=ENABLE_PROJECT_PLUGINS)
+    plugin_engine.load_all()
+
+    # Skill registry (builtin/ + ~/.cogman/skills/)
+    skill_registry = SkillRegistry(SKILLS_DIR)
+    skill_registry.load_all(registry)
+
+    # Session manager with FTS5 search + branching + rollback
+    session_mgr = SessionManager()
+
+    # Self-learning: extracts facts/preferences after each interaction
+    learner = PostInteractionLearner(memory, orchestrator._providers)
+
+    # Self-evolving: auto-creates skills from repeated task patterns
+    evolver = SkillEvolver(memory, skill_registry, orchestrator._providers)
+
+    # Slash command dispatcher
+    dispatcher = CommandDispatcher(
+        orchestrator, memory, registry,
+        session_mgr=session_mgr,
+        plugin_engine=plugin_engine,
+        skill_registry=skill_registry,
+    )
+
+    # Wire everything into orchestrator
+    orchestrator.plugin_engine  = plugin_engine
+    orchestrator.skill_registry = skill_registry
+    orchestrator.session_mgr    = session_mgr
+    orchestrator.dispatcher     = dispatcher
+    orchestrator.learner        = learner
+    orchestrator.evolver        = evolver
+
+    return orchestrator, memory, registry, plugin_engine, skill_registry, session_mgr
+
+
+# ── Banner ────────────────────────────────────────────────────────────────────
 
 BANNER = r"""
-   ██████╗ ██████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
-  ██╔════╝██╔═══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
-  ██║     ██║   ██║██║  ███╗██╔████╔██║███████║██╔██╗ ██║
-  ██║     ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
-  ╚██████╗╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
-   ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
-             Jarvis-style Linux AI Assistant
+  ██████╗ ██████╗  ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
+ ██╔════╝██╔═══██╗██╔════╝ ████╗ ████║██╔══██╗████╗  ██║
+ ██║     ██║   ██║██║  ███╗██╔████╔██║███████║██╔██╗ ██║
+ ██║     ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
+ ╚██████╗╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
+  ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+  Pi · OpenClaw · Hermes   —   Self-learning AI Assistant
 """
 
 
-def print_status(orchestrator: Orchestrator):
-    from speech.tts import get_tts_backend, is_tts_available
-    from speech.stt import get_stt_backend, is_stt_available
+# ── Rich helpers ──────────────────────────────────────────────────────────────
 
-    n_tools = len(orchestrator.registry.list_names())
-    ollama_ok = orchestrator._check_ollama()
-
-    lines = [
-        "─" * 50,
-        " cogman status",
-        "─" * 50,
-        f" Tools loaded : {n_tools}",
-        "",
-        " Routing tiers:",
-        f"  [✓] Tier 1 — Regex rules       (always active)",
-        f"  [✓] Tier 2 — Local NLP          (always active)",
-        f"  [{'✓' if ollama_ok else '✗'}] Tier 3 — Local LLM (Ollama)  "
-        + (f"model={OLLAMA_MODEL}" if ollama_ok else f"not running — start: ollama run {OLLAMA_MODEL}"),
-        f"  [{'✓' if ANTHROPIC_API_KEY else '✗'}] Tier 4 — Cloud LLM (Anthropic) "
-        + ("active" if ANTHROPIC_API_KEY else "set ANTHROPIC_API_KEY to enable"),
-        "",
-        " Voice:",
-        f"  TTS: {get_tts_backend()}" + (" (audio)" if is_tts_available() else " (print fallback)"),
-        f"  STT: {get_stt_backend()}" + (" (mic)" if is_stt_available() else " (keyboard fallback)"),
-        "─" * 50,
-    ]
-    print("\n".join(lines))
+def _try_rich():
+    try:
+        from rich.console import Console
+        from rich.markdown import Markdown
+        from rich.panel import Panel
+        return Console(), Markdown, Panel
+    except ImportError:
+        return None, None, None
 
 
-def run_cli(orchestrator: Orchestrator):
-    print(BANNER)
-    n = len(orchestrator.registry.list_names())
-    print(f"  {n} tools loaded | type 'help' for commands | 'status' for tier info\n")
+def _print_response(text: str, console=None, Markdown=None, Panel=None):
+    if console and Markdown and Panel:
+        try:
+            console.print(Panel(Markdown(text), border_style="dim cyan", padding=(0, 1)))
+            return
+        except Exception:
+            pass
+    print(f"\ncogman > {text}\n")
 
+
+def _make_event_handler(console=None):
+    """Returns an event listener that shows streaming output and tool calls."""
+    from agents.events import ToolExecutionStartEvent, ToolExecutionEndEvent, MessageUpdateEvent
+
+    def handler(event):
+        if isinstance(event, MessageUpdateEvent) and event.delta:
+            print(event.delta, end="", flush=True)
+        elif isinstance(event, ToolExecutionStartEvent):
+            args_str = str(event.args)[:60] if event.args else ""
+            if console:
+                console.print(f"  [dim cyan]→ {event.tool_name}({args_str})[/]", end="")
+            else:
+                print(f"\n  → {event.tool_name}({args_str})", end="", flush=True)
+        elif isinstance(event, ToolExecutionEndEvent):
+            status = "✓" if not event.is_error else "✗"
+            if console:
+                console.print(f" [{status}]")
+            else:
+                print(f" [{status}]", flush=True)
+
+    return handler
+
+
+# ── CLI mode ──────────────────────────────────────────────────────────────────
+
+def run_cli(orchestrator, memory, registry, plugin_engine, skill_registry, session_mgr):
+    console, Markdown, Panel = _try_rich()
+
+    if console:
+        console.print(BANNER, style="bold cyan")
+    else:
+        print(BANNER)
+
+    n_tools   = len(registry.list_names())
+    n_plugins = len(plugin_engine.loaded_names)
+    n_skills  = len(skill_registry.list())
+    providers = orchestrator._providers.list_available()
+    pstr = ", ".join(providers) if providers else "none — set API key or start Ollama"
+
+    print(f"  Tools: {n_tools}  |  Plugins: {n_plugins}  |  Skills: {n_skills}")
+    print(f"  Providers: {pstr}")
+    print(f"  Session: {session_mgr.session_id}")
+    print(f"  /help for commands | 'status' for full info\n")
+
+    orchestrator.add_event_listener(_make_event_handler(console))
     signal.signal(signal.SIGINT, lambda s, f: (print("\n[cogman] Goodbye."), sys.exit(0)))
 
     while True:
         try:
-            user_input = input("you > ").strip()
+            if console:
+                from rich.prompt import Prompt
+                user_input = Prompt.ask("[bold green]you[/bold green]")
+            else:
+                user_input = input("you > ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\n[cogman] Goodbye.")
             break
@@ -144,38 +234,48 @@ def run_cli(orchestrator: Orchestrator):
         if not user_input:
             continue
 
-        cmd = user_input.lower()
-
-        if cmd in ("quit", "exit", "bye", "goodbye"):
+        cmd_lower = user_input.lower()
+        if cmd_lower in ("quit", "exit", "bye", "goodbye"):
             print("[cogman] Goodbye.")
             break
-        elif cmd == "help":
-            print(f"\nAvailable tools ({n}):\n{orchestrator.registry.summary()}\n")
-            print("Meta commands: help, tools, status, clear, quit")
+        elif cmd_lower == "help":
+            from core.command_registry import cli_help_text
+            print(cli_help_text())
             continue
-        elif cmd == "tools":
-            print(f"\n{orchestrator.registry.summary()}\n")
+        elif cmd_lower == "tools":
+            print(f"\n{registry.summary()}\n")
             continue
-        elif cmd == "status":
-            print_status(orchestrator)
+        elif cmd_lower == "status":
+            print(orchestrator.print_status())
             continue
-        elif cmd == "clear":
-            orchestrator.memory.short.clear()
-            print("[cogman] Conversation cleared.")
+        elif cmd_lower == "clear":
+            memory.short.clear()
+            os.system("clear")
             continue
+
+        # Auto-title first message
+        if session_mgr.current and len(memory.short.get()) <= 1:
+            title = session_mgr.auto_title(user_input)
+            session_mgr.current.title = title
+            session_mgr._save_session(session_mgr.current)
 
         response = orchestrator.process(user_input)
-        print(f"\ncogman > {response}\n")
+
+        if response:
+            print()  # newline after streaming
+            _print_response(response, console, Markdown, Panel)
 
 
-def run_voice(orchestrator: Orchestrator):
+# ── Voice mode ────────────────────────────────────────────────────────────────
+
+def run_voice(orchestrator):
     from speech.tts import speak, get_tts_backend
-    from speech.stt import get_stt_backend, is_stt_available
+    from speech.stt import get_stt_backend
     from speech.listener import start_listening
 
     print(BANNER)
-    print(f"  Voice mode | TTS={get_tts_backend()} | STT={get_stt_backend()}")
-    print("  Say 'Hey cogman' to wake me | Ctrl+C to stop\n")
+    print(f"  Voice | TTS={get_tts_backend()} | STT={get_stt_backend()}")
+    print("  Say 'Hey cogman' | Ctrl+C to stop\n")
 
     def handle(text: str) -> str:
         text = text.strip()
@@ -191,56 +291,61 @@ def run_voice(orchestrator: Orchestrator):
     except KeyboardInterrupt:
         from speech.listener import stop_listening
         stop_listening()
-        print("\n[cogman] Voice mode stopped.")
+        print("\n[cogman] Voice stopped.")
 
 
-def run_setup():
-    print("[cogman] Setup — downloading offline speech models\n")
+# ── Gateway mode ──────────────────────────────────────────────────────────────
 
-    print("[1/2] Installing STT model (Vosk small ~50MB)...")
-    try:
-        from speech.stt import download_vosk_model
-        result = download_vosk_model("small")
-        print(f"  {result}")
-    except Exception as e:
-        print(f"  Error: {e}")
-        print("  Manual: pip install vosk sounddevice")
-
-    print("\n[2/2] TTS check...")
-    try:
-        from speech.tts import get_tts_backend
-        backend = get_tts_backend()
-        print(f"  TTS backend: {backend}")
-        if backend == "print":
-            print("  Install pyttsx3: pip install pyttsx3")
-            print("  Or system TTS:   sudo apt install espeak-ng")
-    except Exception as e:
-        print(f"  Error: {e}")
-
-    print("\n[cogman] Setup complete. Run with --voice to test.")
+def run_gateway(orchestrator, memory, session_mgr, plugin_engine):
+    from core.gateway import GatewayRunner
+    print(BANNER)
+    GatewayRunner(orchestrator, memory, session_mgr, plugin_engine).start()
 
 
-def run_api(orchestrator: Orchestrator, memory: Memory):
+# ── API mode ──────────────────────────────────────────────────────────────────
+
+def run_api(orchestrator, memory):
     try:
         import uvicorn
         from api.server import app, init as api_init
     except ImportError:
         print("[cogman] Install: pip install fastapi uvicorn")
         sys.exit(1)
-
     api_init(orchestrator, memory)
     print(f"[cogman] API: http://{API_HOST}:{API_PORT}")
     uvicorn.run(app, host=API_HOST, port=API_PORT, log_level="warning")
 
 
+# ── Setup mode ────────────────────────────────────────────────────────────────
+
+def run_setup():
+    print("[cogman] Setup — downloading offline speech models\n")
+    print("[1/2] Vosk STT model (~50MB)...")
+    try:
+        from speech.stt import download_vosk_model
+        print(f"  {download_vosk_model('small')}")
+    except Exception as e:
+        print(f"  Error: {e}\n  Manual: pip install vosk sounddevice")
+    print("\n[2/2] TTS check...")
+    try:
+        from speech.tts import get_tts_backend
+        print(f"  TTS: {get_tts_backend()}")
+    except Exception as e:
+        print(f"  Error: {e}")
+    print("\n[cogman] Setup complete.")
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
 def main():
-    parser = argparse.ArgumentParser(prog="cogman", description="cogman — Jarvis-style Linux AI")
-    parser.add_argument("--voice",  action="store_true", help="Wake-word voice mode")
-    parser.add_argument("--api",    action="store_true", help="Start REST API server")
-    parser.add_argument("--setup",  action="store_true", help="Download offline speech models")
-    parser.add_argument("--status", action="store_true", help="Show tier/backend status")
+    parser = argparse.ArgumentParser(prog="cogman", description="cogman — Self-learning Linux AI")
+    parser.add_argument("--voice",   action="store_true", help="Wake-word voice mode")
+    parser.add_argument("--gateway", action="store_true", help="Multi-channel gateway")
+    parser.add_argument("--api",     action="store_true", help="REST API server")
+    parser.add_argument("--setup",   action="store_true", help="Download speech models")
+    parser.add_argument("--status",  action="store_true", help="Show system status")
     parser.add_argument("-c", "--command", type=str, help="Run one command and exit")
-    parser.add_argument("--debug",  action="store_true", help="Verbose debug logging")
+    parser.add_argument("--debug",   action="store_true", help="Verbose logging")
     args = parser.parse_args()
 
     setup_logging(args.debug)
@@ -249,22 +354,27 @@ def main():
         run_setup()
         return
 
-    orchestrator, memory, registry = build_agent()
+    orchestrator, memory, registry, plugin_engine, skill_registry, session_mgr = build_agent()
 
     if args.status:
-        print_status(orchestrator)
+        print(orchestrator.print_status())
         return
 
     if args.command:
-        print(orchestrator.process(args.command))
+        orchestrator.add_event_listener(_make_event_handler())
+        response = orchestrator.process(args.command)
+        if response:
+            print(response)
         return
 
     if args.voice:
         run_voice(orchestrator)
+    elif args.gateway:
+        run_gateway(orchestrator, memory, session_mgr, plugin_engine)
     elif args.api:
         run_api(orchestrator, memory)
     else:
-        run_cli(orchestrator)
+        run_cli(orchestrator, memory, registry, plugin_engine, skill_registry, session_mgr)
 
 
 if __name__ == "__main__":
