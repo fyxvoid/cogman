@@ -1,0 +1,44 @@
+[identity]
+name     = "openssh"
+version  = "9.9p2"
+category = "net"
+summary  = "OpenSSH — remote login protocol client and server"
+
+[identity.source]
+kind = "tarball"
+file = "openssh-9.9p2.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xzf tar/openssh-9.9p2.tar.gz",
+    "cd openssh-9.9p2 && ./configure --prefix=$PKGROOT/usr --sysconfdir=/etc/ssh --with-privsep-path=/var/lib/sshd --with-default-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "make -C openssh-9.9p2 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C openssh-9.9p2 install-nosysconf",
+    "install -Dm600 openssh-9.9p2/sshd_config $PKGROOT/etc/ssh/sshd_config",
+    "mkdir -p $PKGROOT/var/lib/sshd",
+    "chmod 700 $PKGROOT/var/lib/sshd",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/ssh",
+    "usr/sbin/sshd",
+    "usr/bin/ssh-keygen",
+    "etc/ssh/sshd_config",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]
+
+[policy.network]
+outbound = true

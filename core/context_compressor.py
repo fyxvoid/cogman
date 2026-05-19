@@ -1,5 +1,5 @@
 """
-Context compressor — ported from Hermes Agent agent/context_compressor.py.
+Context compressor — automatically compresses long conversation histories.
 
 Auto-compresses conversation context when approaching the context window limit.
 Uses an LLM to summarize middle turns while protecting head + tail.

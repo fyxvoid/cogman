@@ -1,0 +1,35 @@
+[identity]
+name     = "fd"
+version  = "10.2.0"
+category = "tools"
+summary  = "Simple, fast and user-friendly alternative to find"
+
+[identity.source]
+kind = "tarball"
+file = "fd-10.2.0.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "rust"
+steps  = [
+    "tar -xzf tar/fd-10.2.0.tar.gz",
+    "cd fd-10.2.0 && cargo build --release",
+]
+
+[installer]
+steps = [
+    "install -Dm755 fd-10.2.0/target/release/fd $PKGROOT/usr/bin/fd",
+    "install -Dm644 fd-10.2.0/doc/fd.1 $PKGROOT/usr/share/man/man1/fd.1",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/fd",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

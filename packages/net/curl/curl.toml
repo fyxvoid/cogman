@@ -1,0 +1,41 @@
+[identity]
+name     = "curl"
+version  = "8.11.1"
+category = "net"
+summary  = "Command-line tool and library for transferring data with URLs"
+
+[identity.source]
+kind = "tarball"
+file = "curl-8.11.1.tar.xz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xJf tar/curl-8.11.1.tar.xz",
+    "cd curl-8.11.1 && ./configure --prefix=$PKGROOT/usr --with-openssl --enable-ipv6 --enable-unix-sockets --without-libpsl --disable-ldap",
+    "make -C curl-8.11.1 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C curl-8.11.1 install",
+    "strip --strip-unneeded $PKGROOT/usr/bin/curl",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/curl",
+    "usr/lib/libcurl.so",
+    "usr/include/curl/curl.h",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]
+
+[policy.network]
+outbound = true

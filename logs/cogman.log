@@ -1,2 +1,156 @@
 2026-04-27 11:36:17,461 [cogman.memory] WARNING: chromadb not installed — vector search disabled
 2026-04-27 11:36:17,461 [cogman.orchestrator] WARNING: ANTHROPIC_API_KEY not set — LLM fallback disabled
+2026-04-28 18:05:48,818 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-04-28 18:05:55,465 [cogman.actions] INFO: TOOL=list_files ARGS={'path': 'current directory'} RESULT=Directory not found: current directory
+2026-04-28 18:06:01,581 [cogman.actions] INFO: TOOL=run_shell ARGS={'command': 'python code: print(sum(range(100)))'} RESULT=[exit 2] /bin/sh: 1: Syntax error: "(" unexpected
+2026-04-28 18:07:15,958 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-04-28 18:07:24,250 [cogman.actions] INFO: TOOL=get_weather ARGS={'city': 'skill_city=london'} RESULT=skill_city=london: ⛅  +10°C
+2026-04-28 18:07:24,600 [cogman.actions] INFO: TOOL=save_memory ARGS={'content': 'action=add text=remember to update cogman'} RESULT=Remembered: action=add text=remember to update cogman...
+2026-04-29 11:47:48,586 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-04-29 11:47:58,856 [cogman.actions] INFO: TOOL=get_weather ARGS={'city': 'skill_city=tokyo'} RESULT=skill_city=tokyo: 🌦   +17°C
+2026-04-29 11:59:10,944 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-04-29 12:08:33,213 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-04-29 12:12:45,888 [cogman.actions] INFO: TOOL=list_files ARGS={'path': '~'} RESULT=Contents of /home/void:
+  [DIR] .BurpSuite
+  [DIR] .cache
+  [DIR] .claude
+  [DIR] .cogman
+  [DIR] .config
+  [DIR] .fonts
+  [DIR] .gnupg
+  [DIR] .java
+  [DIR] .local
+  [DIR] .mozilla
+  [DIR] .oh-my-zsh
+2026-04-29 12:13:05,979 [cogman.actions] INFO: TOOL=git_status ARGS={} RESULT=On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be com
+2026-05-02 14:32:09,858 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-05-02 14:33:28,272 [cogman.actions] INFO: TOOL=get_time ARGS={} RESULT=Current time: 14:33:28 IST
+2026-05-02 14:33:28,654 [cogman.actions] INFO: TOOL=get_date ARGS={} RESULT=Today is Saturday, May 02, 2026
+2026-05-02 14:33:29,413 [cogman.actions] INFO: TOOL=run_shell ARGS={'command': 'echo cogman_shell_test'} RESULT=cogman_shell_test
+2026-05-02 14:33:29,728 [cogman.actions] INFO: TOOL=disk_usage ARGS={} RESULT=Disk (/):
+  Total: 67 GB
+  Used:  19 GB (30.6%)
+  Free:  44 GB
+2026-05-02 14:33:30,061 [cogman.actions] INFO: TOOL=memory_usage ARGS={} RESULT=RAM: 3936 MB used / 7801 MB total (50.5%)
+Swap: 988 MB / 2789 MB (35.4%)
+2026-05-02 14:33:31,431 [cogman.actions] INFO: TOOL=cpu_usage ARGS={} RESULT=CPU: 21.0% overall @ 1202 MHz
+  Core 0: 24.0%
+  Core 1: 18.8%
+  Core 2: 20.4%
+  Core 3: 20.4%
+  Core 4: 20.4%
+  Core 5: 17.0%
+  Core 6: 24.3%
+  Core 7: 22.4%
+2026-05-02 14:33:39,892 [cogman.actions] INFO: TOOL=read_file ARGS={'path': 'me cpu usage right now'} RESULT=File not found: me cpu usage right now
+2026-05-02 14:33:40,259 [cogman.actions] INFO: TOOL=disk_usage ARGS={} RESULT=Disk (/):
+  Total: 67 GB
+  Used:  19 GB (30.6%)
+  Free:  44 GB
+2026-05-02 14:33:40,631 [cogman.actions] INFO: TOOL=list_processes ARGS={} RESULT=USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+void      440281  100  0.0   9544  4084 ?        R    14:33   0:00 ps aux --sort=-%cpu
+void      440277 80.6  0.4  61500 3435
+2026-05-02 14:33:40,969 [cogman.actions] INFO: TOOL=git_status ARGS={} RESULT=On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be com
+2026-05-02 14:33:41,297 [cogman.actions] INFO: TOOL=read_file ARGS={'path': 'docker containers'} RESULT=File not found: docker containers
+2026-05-02 14:33:42,251 [cogman.actions] INFO: TOOL=get_weather ARGS={'city': "what's the chennai"} RESULT=what s the chennai: ☀️   +36°C
+2026-05-02 14:33:45,982 [cogman.actions] INFO: TOOL=set_brightness ARGS={'percent': 70} RESULT=Updated device 'intel_backlight':
+Device 'intel_backlight' of class 'backlight':
+	Current brightness: 1050 (70%)
+	Max brightness: 1500
+2026-05-02 14:34:34,533 [cogman.actions] INFO: TOOL=cpu_usage ARGS={} RESULT=CPU: 23.6% overall @ 2500 MHz
+  Core 0: 17.5%
+  Core 1: 24.2%
+  Core 2: 20.2%
+  Core 3: 20.0%
+  Core 4: 26.5%
+  Core 5: 25.0%
+  Core 6: 32.0%
+  Core 7: 23.2%
+2026-05-02 14:34:34,877 [cogman.actions] INFO: TOOL=docker_ps ARGS={} RESULT=Docker not installed — visit https://docs.docker.com/engine/install/
+2026-05-02 14:34:35,233 [cogman.actions] INFO: TOOL=read_file ARGS={'path': '/etc/hostname'} RESULT=[BLOCKED] Blocked: access to system path '/etc'
+2026-05-02 14:34:35,559 [cogman.actions] INFO: TOOL=read_file ARGS={'path': '~/.bashrc'} RESULT=# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+# for examples
+
+# If not running interactively, don't do anything
+case
+2026-05-02 14:34:35,895 [cogman.actions] INFO: TOOL=read_file ARGS={'path': '/etc/os-release'} RESULT=[BLOCKED] Blocked: access to system path '/etc'
+2026-05-02 14:37:20,482 [cogman.actions] INFO: TOOL=memory_usage ARGS={} RESULT=RAM: 4335 MB used / 7801 MB total (55.6%)
+Swap: 987 MB / 2789 MB (35.4%)
+2026-05-02 14:38:26,975 [cogman.tools] ERROR: Tool 'unit_convert' failed
+Traceback (most recent call last):
+  File "/home/void/void/cogman/core/tool_registry.py", line 24, in run
+    result = self.func(**kwargs)
+  File "/home/void/void/cogman/tools/misc_tools.py", line 138, in unit_convert
+    return f"{value} {from_unit} = {value * factor:.6g} {to_unit}"
+                                   ^^^^^^^^^^^^^^^^^^^^
+ValueError: Unknown format code 'g' for object of type 'str'
+2026-05-02 14:39:58,598 [cogman.actions] INFO: TOOL=unit_convert ARGS={'value': 5.0, 'from_unit': 'miles', 'to_unit': 'km'} RESULT=No conversion found for miles → km
+2026-05-02 14:40:00,311 [cogman.actions] INFO: TOOL=cpu_usage ARGS={} RESULT=CPU: 17.8% overall @ 900 MHz
+  Core 0: 17.2%
+  Core 1: 15.2%
+  Core 2: 13.4%
+  Core 3: 20.4%
+  Core 4: 33.7%
+  Core 5: 13.4%
+  Core 6: 16.3%
+  Core 7: 13.1%
+2026-05-02 14:40:00,649 [cogman.actions] INFO: TOOL=list_files ARGS={'path': '/tmp'} RESULT=Contents of /tmp:
+  [DIR] .ICE-unix
+  [DIR] .X11-unix
+  [DIR] .XIM-unix
+  [DIR] .font-unix
+  [DIR] claude-1000
+  [DIR] hsperfdata_void
+  [FILE] polybar_mqueue.1677
+  [DIR] pytest-of-void
+  [DIR] scope
+2026-05-02 14:40:00,991 [cogman.actions] INFO: TOOL=memory_usage ARGS={} RESULT=RAM: 4341 MB used / 7801 MB total (55.6%)
+Swap: 980 MB / 2789 MB (35.1%)
+2026-05-02 14:40:01,381 [cogman.actions] INFO: TOOL=list_processes ARGS={} RESULT=USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+void      442038 83.8  0.4  61500 34372 ?        Sl   14:40   0:00 python main.py -c process tree
+void      426410 25.4  5.8 
+2026-05-02 14:40:01,698 [cogman.actions] INFO: TOOL=git_log ARGS={} RESULT=4cdd0fe rebuild: modular architecture with self-learning, self-evolving, context-aware AI
+6e2ef8a Initial Commit
+91855fc first commit
+2026-05-02 14:40:02,065 [cogman.actions] INFO: TOOL=list_open_ports ARGS={} RESULT=State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                               
+LISTEN 0      511        127.0.0.1:6463      0.0.0.0:*    users:(("Discord",pid=175470,fd=119))
+2026-05-02 14:40:02,419 [cogman.actions] INFO: TOOL=who_is_logged_in ARGS={} RESULT=void     seat0        Apr 30 12:58 (:0)
+ 14:40:02 up 2 days,  1:42,  1 user,  load average: 1.38, 1.66, 1.47
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU  WHAT
+void              -   
+2026-05-02 14:40:02,753 [cogman.actions] INFO: TOOL=cron_list ARGS={} RESULT=(no crontab for current user)
+2026-05-02 14:44:16,453 [cogman.actions] INFO: TOOL=unit_convert ARGS={'value': 5.0, 'from_unit': 'miles', 'to_unit': 'km'} RESULT=5.0 miles = 8.0467 km
+2026-05-02 14:44:16,753 [cogman.actions] INFO: TOOL=calculate ARGS={'expression': '2**16'} RESULT=2**16 = 65536
+2026-05-02 14:44:17,005 [cogman.actions] INFO: TOOL=calculate ARGS={'expression': '2**10'} RESULT=2**10 = 1024
+2026-05-02 14:44:17,378 [cogman.actions] INFO: TOOL=top_processes ARGS={'n': 5, 'sort_by': 'memory'} RESULT=    PID   CPU%   MEM%     STATUS       USER  NAME
+-------------------------------------------------------
+ 263136    0.0    9.1   sleeping       void  Isolated Web Co
+ 262845    0.0    8.9   sleeping 
+2026-05-02 14:44:17,744 [cogman.actions] INFO: TOOL=top_processes ARGS={'n': 3, 'sort_by': 'cpu'} RESULT=    PID   CPU%   MEM%     STATUS       USER  NAME
+-------------------------------------------------------
+      1    0.0    0.1   sleeping       root  systemd
+      2    0.0    0.0   sleeping       ro
+2026-05-02 14:44:18,109 [cogman.actions] INFO: TOOL=process_tree ARGS={} RESULT=systemd(1)-+-ModemManager(38653)-+-{ModemManager}(38654)
+           |                     |-{ModemManager}(38655)
+           |                     `-{ModemManager}(38658)
+           |-NetworkManager(9
+2026-05-02 14:54:14,497 [cogman.speech.stt] WARNING: STT: no audio backend — using keyboard input fallback
+2026-05-02 15:39:28,359 [cogman.providers] ERROR: Ollama error: HTTP Error 400: Bad Request
+2026-05-02 15:39:30,394 [cogman.providers] ERROR: Ollama error: HTTP Error 400: Bad Request
+2026-05-02 15:39:32,058 [cogman.actions] INFO: TOOL=notify ARGS={'title': 'cogman Reminder', 'message': 'to check email at 3pm'} RESULT=Notification sent: cogman Reminder
+2026-05-02 15:39:34,106 [cogman.actions] INFO: TOOL=save_memory ARGS={'content': ': buy groceries tomorrow'} RESULT=Remembered: : buy groceries tomorrow...
+2026-05-02 15:40:37,986 [cogman.actions] INFO: TOOL=apt_install ARGS={'package': 'vim and set it as my default editor'} RESULT=Cancelled.
+2026-05-02 15:40:39,656 [cogman.actions] INFO: TOOL=list_processes ARGS={} RESULT=USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+void      458039  100  0.0   9544  4052 ?        R    15:40   0:00 ps aux --sort=-%cpu
+void      458017 95.9  1.4 968252 1181

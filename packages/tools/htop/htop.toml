@@ -1,0 +1,36 @@
+[identity]
+name     = "htop"
+version  = "3.3.0"
+category = "tools"
+summary  = "Interactive process viewer and system monitor"
+
+[identity.source]
+kind = "tarball"
+file = "htop-3.3.0.tar.xz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xJf tar/htop-3.3.0.tar.xz",
+    "cd htop-3.3.0 && ./configure --prefix=$PKGROOT/usr --enable-unicode --enable-affinity",
+    "make -C htop-3.3.0 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C htop-3.3.0 install",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/htop",
+    "usr/share/man/man1/htop.1",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

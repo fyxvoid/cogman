@@ -120,8 +120,17 @@ def unit_convert(value: float, from_unit: str, to_unit: str) -> str:
         ("tb", "gb"): 1024, ("gib", "mib"): 1024,
     }
 
-    from_u = from_unit.lower()
-    to_u = to_unit.lower()
+    # Normalise plural / alternate spellings
+    _aliases = {
+        "miles": "mile", "metres": "m", "meters": "m", "kilometres": "km",
+        "kilometers": "km", "kilos": "kg", "kilograms": "kg", "grams": "g",
+        "pounds": "lb", "lbs": "lb", "feet": "ft", "inches": "inch",
+        "celsius": "c", "fahrenheit": "f", "kelvin": "k",
+        "gigabytes": "gb", "megabytes": "mb", "kilobytes": "kb", "bytes": "b",
+        "terabytes": "tb", "tebibytes": "tib",
+    }
+    from_u = _aliases.get(from_unit.lower(), from_unit.lower())
+    to_u   = _aliases.get(to_unit.lower(),   to_unit.lower())
 
     # Temperature special cases
     if from_u == "c" and to_u == "f":

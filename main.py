@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 cogman — Self-learning, self-evolving Linux AI Assistant
-Powered by: Pi Agent Core · OpenClaw Gateway · Hermes Skills/Plugins
 
 Modes:
   python main.py              → interactive CLI
@@ -59,6 +58,9 @@ from tools.misc_tools import register_misc_tools
 from tools.browser_tools import register_browser_tools
 from tools.code_tools import register_code_tools
 from tools.image_tools import register_image_tools
+from tools.build_tools import register_build_tools
+from tools.native_pkg_tools import register_native_pkg_tools
+from tools.monitor_tools import register_monitor_tools
 
 
 def setup_logging(debug: bool = False):
@@ -98,11 +100,13 @@ def build_agent():
     register_browser_tools(registry)
     register_code_tools(registry)
     register_image_tools(registry)
+    register_build_tools(registry)
+    register_native_pkg_tools(registry)
 
-    # Core orchestrator (Pi Agent + 7-stage pipeline + env context)
+    # Core orchestrator (7-stage pipeline + cognitive loop + env context)
     orchestrator = Orchestrator(registry, memory)
 
-    # Plugin engine (Hermes-style, loads from ~/.cogman/plugins/)
+    # Plugin engine (loads from ~/.cogman/plugins/)
     plugin_engine = PluginEngine(registry, allow_project_plugins=ENABLE_PROJECT_PLUGINS)
     plugin_engine.load_all()
 
@@ -135,6 +139,34 @@ def build_agent():
     orchestrator.learner        = learner
     orchestrator.evolver        = evolver
 
+    # ── System monitor (proactive background watcher) ─────────────────────────
+    from core.config import MONITOR_ENABLED
+    if MONITOR_ENABLED:
+        from core.monitor import SystemMonitor, Thresholds
+        from tools.monitor_tools import set_monitor_instance
+
+        def _speak_alert(text):
+            try:
+                from speech.tts import speak_async
+                speak_async(text)
+            except Exception:
+                pass
+
+        def _notify_alert(title, message):
+            try:
+                from tools.misc_tools import notify
+                notify(title, message)
+            except Exception:
+                pass
+
+        monitor = SystemMonitor(
+            speak_fn=_speak_alert,
+            notify_fn=_notify_alert,
+        )
+        monitor.start()
+        set_monitor_instance(monitor)
+        register_monitor_tools(registry, monitor)
+
     return orchestrator, memory, registry, plugin_engine, skill_registry, session_mgr
 
 
@@ -147,7 +179,7 @@ BANNER = r"""
  ██║     ██║   ██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
  ╚██████╗╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
   ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
-  Pi · OpenClaw · Hermes   —   Self-learning AI Assistant
+        Self-learning Linux AI Assistant
 """
 
 

@@ -148,31 +148,34 @@ def check_syntax(code: str, language: str = "python") -> str:
 
 def format_code(code: str, language: str = "python") -> str:
     """Format code using black, autopep8, or prettier."""
+    import shutil
     if language.lower() == "python":
-        # Try black first
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             tmp = f.name
         try:
-            result = subprocess.run(
-                ["black", "--quiet", tmp], capture_output=True, text=True,
-            )
-            if result.returncode == 0:
-                with open(tmp) as f:
-                    return f.read()
-            # Try autopep8
-            result = subprocess.run(
-                ["autopep8", "-"], input=code, capture_output=True, text=True,
-            )
-            if result.returncode == 0 and result.stdout:
-                return result.stdout
-            return f"Formatting failed. Install: pip install black"
+            if shutil.which("black"):
+                result = subprocess.run(
+                    ["black", "--quiet", tmp], capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    with open(tmp) as f:
+                        return f.read()
+            if shutil.which("autopep8"):
+                result = subprocess.run(
+                    ["autopep8", "-"], input=code, capture_output=True, text=True,
+                )
+                if result.returncode == 0 and result.stdout:
+                    return result.stdout
+            return "Formatting failed. Install: pip install black"
         finally:
             try:
                 os.unlink(tmp)
             except Exception:
                 pass
     elif language.lower() in ("js", "javascript", "ts", "typescript"):
+        if not shutil.which("prettier"):
+            return "Install prettier: npm install -g prettier"
         result = subprocess.run(
             ["prettier", "--stdin-filepath", f"file.{language}"],
             input=code, capture_output=True, text=True,
@@ -193,21 +196,32 @@ def lint_code(code: str, language: str = "python") -> str:
         tmp = f.name
 
     try:
+        import shutil
         # Try ruff (fastest)
-        result = subprocess.run(
-            ["ruff", "check", tmp, "--output-format=text"],
-            capture_output=True, text=True,
-        )
-        if result.returncode in (0, 1):
-            return result.stdout or "No issues found (ruff)."
+        if shutil.which("ruff"):
+            result = subprocess.run(
+                ["ruff", "check", tmp, "--output-format=text"],
+                capture_output=True, text=True,
+            )
+            if result.returncode in (0, 1):
+                return result.stdout or "No issues found (ruff)."
 
         # Try flake8
-        result = subprocess.run(
-            ["flake8", "--max-line-length=100", tmp],
-            capture_output=True, text=True,
-        )
-        if result.returncode in (0, 1):
-            return result.stdout or "No issues found (flake8)."
+        if shutil.which("flake8"):
+            result = subprocess.run(
+                ["flake8", "--max-line-length=100", tmp],
+                capture_output=True, text=True,
+            )
+            if result.returncode in (0, 1):
+                return result.stdout or "No issues found (flake8)."
+
+        # Try pylint
+        if shutil.which("pylint"):
+            result = subprocess.run(
+                ["pylint", "--score=no", tmp],
+                capture_output=True, text=True,
+            )
+            return result.stdout or "No issues found (pylint)."
 
         return "Install a linter: pip install ruff  or  pip install flake8"
     finally:

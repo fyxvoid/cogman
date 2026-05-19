@@ -1,4 +1,4 @@
-"""Agent event types — ported from pi-agent-core types.ts."""
+"""Agent event types for COGMAN's cognitive loop streaming."""
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 

@@ -1,0 +1,22 @@
+[service]
+name    = cogman-gateway
+command = python3 /home/void/void/cogman/main.py --gateway
+type    = process
+restart = on-failure
+restart_delay = 10
+depends = cogman-api
+
+[env]
+COGMAN_LOCAL_LLM = true
+PYTHONUNBUFFERED = 1
+
+[health]
+type    = exec
+command = python3 -c "import socket; s=socket.create_connection(('127.0.0.1',7777),2)"
+interval = 30
+timeout  = 5
+retries  = 2
+
+[policy]
+allow_read  = /home/void/void/cogman, /etc, /usr, /tmp
+allow_write = /home/void/void/cogman/logs, /tmp

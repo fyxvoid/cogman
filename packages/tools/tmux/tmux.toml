@@ -1,0 +1,37 @@
+[identity]
+name     = "tmux"
+version  = "3.4"
+category = "tools"
+summary  = "Terminal multiplexer — manage multiple terminal sessions"
+
+[identity.source]
+kind = "tarball"
+file = "tmux-3.4.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xzf tar/tmux-3.4.tar.gz",
+    "cd tmux-3.4 && ./configure --prefix=$PKGROOT/usr --enable-utf8proc",
+    "make -C tmux-3.4 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C tmux-3.4 install",
+    "install -Dm644 tmux-3.4/example_tmux.conf $PKGROOT/usr/share/doc/tmux/example.conf",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/tmux",
+    "usr/share/man/man1/tmux.1",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

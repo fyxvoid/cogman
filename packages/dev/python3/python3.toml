@@ -1,0 +1,40 @@
+[identity]
+name     = "python3"
+version  = "3.13.2"
+category = "dev"
+summary  = "Python 3 interpreter and standard library"
+
+[identity.source]
+kind = "tarball"
+file = "Python-3.13.2.tar.xz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xJf tar/Python-3.13.2.tar.xz",
+    "cd Python-3.13.2 && ./configure --prefix=$PKGROOT/usr --enable-optimizations --with-lto --enable-shared --with-system-expat --with-ensurepip=install",
+    "make -C Python-3.13.2 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C Python-3.13.2 altinstall",
+    "ln -sf python3.13 $PKGROOT/usr/bin/python3",
+    "ln -sf python3 $PKGROOT/usr/bin/python",
+    "ln -sf pip3.13 $PKGROOT/usr/bin/pip3",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/python3",
+    "usr/bin/python3.13",
+    "usr/lib/libpython3.13.so",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

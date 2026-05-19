@@ -1,0 +1,37 @@
+[identity]
+name     = "bat"
+version  = "0.25.0"
+category = "tools"
+summary  = "A cat clone with syntax highlighting and Git integration"
+
+[identity.source]
+kind = "tarball"
+file = "bat-0.25.0.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "rust"
+steps  = [
+    "tar -xzf tar/bat-0.25.0.tar.gz",
+    "cd bat-0.25.0 && cargo build --release --locked",
+]
+
+[installer]
+steps = [
+    "install -Dm755 bat-0.25.0/target/release/bat $PKGROOT/usr/bin/bat",
+    "install -Dm644 bat-0.25.0/assets/manual/bat.1 $PKGROOT/usr/share/man/man1/bat.1",
+    "install -Dm644 bat-0.25.0/assets/completions/bat.bash $PKGROOT/usr/share/bash-completion/completions/bat",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/bat",
+    "usr/share/man/man1/bat.1",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

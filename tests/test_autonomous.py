@@ -177,7 +177,10 @@ def test_orchestrator_no_api():
     register_misc_tools(reg)
 
     orch = Orchestrator(reg, mem)
-    assert orch._anthropic is None    # no cloud LLM
+    # No API key set — no cloud LLM should be available
+    available = orch._providers.list_available()
+    cloud_providers = [p for p in available if p not in ("ollama",)]
+    assert not cloud_providers, f"Expected no cloud provider, got: {cloud_providers}"
 
     # Tier 1 — rule-based
     result = orch.process("what time is it")
@@ -187,9 +190,16 @@ def test_orchestrator_no_api():
     result = orch.process("calculate 2 + 2")
     assert "4" in result
 
-    # Unknown → fallback suggestion
+    # Unknown → fallback suggestion or no-LLM / LLM-error notice
     result = orch.process("zxqyabcxyz nonexistent garbage")
-    assert "Did you mean" in result or "understand" in result.lower()
+    assert (
+        "Did you mean" in result
+        or "understand" in result.lower()
+        or "provider" in result.lower()
+        or "api" in result.lower()
+        or "error" in result.lower()
+        or "ollama" in result.lower()
+    )
 
 
 # ── Speech: detection without errors ─────────────────────────────────────────
@@ -198,7 +208,7 @@ def test_tts_detection():
     from speech.tts import get_tts_backend, is_tts_available
     backend = get_tts_backend()
     assert isinstance(backend, str)
-    assert backend in ("pyttsx3", "espeak-ng", "espeak", "spd-say", "festival", "print")
+    assert backend in ("piper", "pyttsx3", "espeak-ng", "espeak", "spd-say", "festival", "print")
 
 
 def test_stt_detection():

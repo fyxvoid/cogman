@@ -1,81 +1,75 @@
-# ── ALWAYS-ON (Tier 1 & 2, zero API needed) ─────────────────────────────────
+# ── Core (always required) ────────────────────────────────────────────────────
 psutil>=5.9.0           # system monitoring
 rapidfuzz>=3.0.0        # fuzzy NLP matching
+pyyaml>=6.0.0           # YAML plugin/skill manifests
+rich>=13.0.0            # rich CLI output
 
-# ── Pi Agent Core: LLM providers (install at least ONE) ──────────────────────
-# Anthropic Claude (best overall)
+# ── LLM providers (install at least ONE) ─────────────────────────────────────
+
+# Anthropic Claude (best overall quality)
 anthropic>=0.49.0
 
-# OpenAI GPT-4o (also enables Groq via openai package)
+# OpenAI GPT-4o
 # openai>=1.30.0
 
 # Google Gemini
 # google-generativeai>=0.8.0
 
-# ── Hermes Skills/Plugins: YAML manifests ─────────────────────────────────────
-pyyaml>=6.0.0
+# ── Gateway: messaging platforms ─────────────────────────────────────────────
 
-# ── OpenClaw Gateway: messaging platforms ────────────────────────────────────
 # Telegram bot
 # python-telegram-bot>=21.0
 
 # Discord bot
 # discord.py>=2.3.0
 
-# Slack bot
+# Slack bot (socket mode)
 # slack-bolt>=1.18.0
 
-# ── REST API / Webhook gateway ────────────────────────────────────────────────
+# IRC — no extra deps (uses built-in socket)
+
+# ── REST API / Webhook ────────────────────────────────────────────────────────
 # fastapi>=0.110.0
 # uvicorn>=0.27.0
 
-# ── Rich CLI (optional but strongly recommended) ─────────────────────────────
-rich>=13.0.0
+# ── Web / browser tools ───────────────────────────────────────────────────────
 
-# ── Web / Browser tools ───────────────────────────────────────────────────────
-# Better HTML extraction (much better than regex)
+# Better HTML extraction
 # trafilatura>=1.6.0
 
-# Beautiful Soup for HTML parsing
+# HTML parsing
 # beautifulsoup4>=4.12.0
 # lxml>=5.0.0
 
 # ── Code tools ────────────────────────────────────────────────────────────────
-# Python formatter (optional)
-# black>=24.0.0
-
-# Fast linter
-# ruff>=0.4.0
+# black>=24.0.0          # Python formatter
+# ruff>=0.4.0            # fast linter
 
 # ── Image tools ───────────────────────────────────────────────────────────────
-# Pillow for image resize/convert
-# Pillow>=10.0.0
+# Pillow>=10.0.0         # image resize/convert
+# pypdf>=4.0.0           # PDF reading
 
-# PDF reading
-# pypdf>=4.0.0
+# ── Speech: TTS (offline) ─────────────────────────────────────────────────────
+pyttsx3>=2.90           # offline TTS via espeak/say
 
-# ── Speech: TTS offline ────────────────────────────────────────────────────────
-pyttsx3>=2.90           # RECOMMENDED: offline TTS
-
-# ── Speech: STT offline ────────────────────────────────────────────────────────
+# ── Speech: STT (offline) ─────────────────────────────────────────────────────
 vosk>=0.3.45            # offline STT (~50MB model)
-sounddevice>=0.4.6      # mic input
+sounddevice>=0.4.6      # microphone input
 
-# ── Memory: vector search (improves semantic recall) ─────────────────────────
-# chromadb>=0.4.0
+# ── Memory: vector search ─────────────────────────────────────────────────────
+# chromadb>=0.4.0        # semantic memory recall
 
-# ── Local LLM via Ollama ──────────────────────────────────────────────────────
-# Install Ollama: curl -fsSL https://ollama.ai/install.sh | sh
-# Pull a model:   ollama pull mistral
-# cogman auto-detects Ollama at localhost:11434
+# ── Local LLM via Ollama ─────────────────────────────────────────────────────
+# Install: curl -fsSL https://ollama.ai/install.sh | sh
+# Pull:    ollama pull mistral
+# COGMAN auto-detects Ollama at localhost:11434
 
 # ── Search ────────────────────────────────────────────────────────────────────
-# Brave Search API (optional, DuckDuckGo works without key)
-# Set BRAVE_API_KEY to enable
+# Set BRAVE_API_KEY for Brave Search; DuckDuckGo works without a key
 
 # ── Image generation ──────────────────────────────────────────────────────────
 # Set OPENAI_API_KEY for DALL-E 3
 # Set COGMAN_SD_URL for local Stable Diffusion (AUTOMATIC1111)
 
-# ── Quick install for full power ─────────────────────────────────────────────
+# ── Quick install ─────────────────────────────────────────────────────────────
 # pip install anthropic openai pyyaml rich trafilatura beautifulsoup4 Pillow ruff

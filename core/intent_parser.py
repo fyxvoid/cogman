@@ -46,7 +46,12 @@ rule(r"(?:search|google|look up)\s+(.+)", "web_search",
      lambda m: {"query": m.group(1)})
 rule(r"(?:list|show)\s+files?\s+(?:in\s+)?(.+)?", "list_files",
      lambda m: {"path": (m.group(1) or "~").strip()})
-rule(r"(?:read|cat|show)\s+(?:file\s+)?(.+)", "read_file",
+# "show" only triggers read_file when the argument looks like an actual path
+# (starts with /, ~, ./, ../ or contains a dot extension like file.txt).
+# Plain "show docker/cpu/processes" must fall through to later rules.
+rule(r"(?:read|cat)\s+(?:file\s+)?(.+)", "read_file",
+     lambda m: {"path": m.group(1).strip()})
+rule(r"show\s+(?:file\s+)?((?:[~/.][\w./\-]+)|(?:\w+\.\w+)(?:\s+\S+)*)", "read_file",
      lambda m: {"path": m.group(1).strip()})
 
 # ─── System Info ─────────────────────────────────────────────────────────────
@@ -67,6 +72,11 @@ rule(r"where\s+is\s+(.+)", "which_command",
 # ─── Process ─────────────────────────────────────────────────────────────────
 rule(r"(?:top|most)\s+(?:cpu|memory|ram)\s*(?:processes?|hogs?)?", "top_processes",
      lambda m: {"sort_by": "memory" if "mem" in m.group(0).lower() or "ram" in m.group(0).lower() else "cpu"})
+# "top N processes by cpu/memory" and "show top N processes"
+rule(r"(?:top|show\s+top|list\s+top)\s+(\d+)\s+(?:processes?|procs?)\s+(?:by\s+)?(\w+)?", "top_processes",
+     lambda m: {"n": int(m.group(1)), "sort_by": m.group(2).lower() if m.group(2) else "cpu"})
+# "process tree" / "show process tree"
+rule(r"(?:show\s+)?process\s+tree", "process_tree", lambda m: {})
 rule(r"(?:info|details?)\s+(?:about\s+)?(?:process|pid)\s+(.+)", "get_process_info",
      lambda m: {"name_or_pid": m.group(1).strip()})
 rule(r"(?:run|start)\s+(.+)\s+in\s+(?:the\s+)?background", "run_background",
@@ -238,6 +248,12 @@ rule(r"(?:list|show)\s+cron(?:tab|jobs?)?", "cron_list", lambda m: {})
 # ─── Calculator ──────────────────────────────────────────────────────────────
 rule(r"(?:calc(?:ulate)?|compute|math|what\s+is)\s+(.+)", "calculate",
      lambda m: {"expression": m.group(1).strip()})
+# "N to the power of M" → calculate
+rule(r"([\d.]+)\s+to\s+the\s+power\s+of\s+([\d.]+)", "calculate",
+     lambda m: {"expression": f"{m.group(1)}**{m.group(2)}"})
+# "what's/what is N ^ M / N ** M"
+rule(r"what['\s]+s?\s+([\d.]+)\s*[\^*]{1,2}\s*([\d.]+)", "calculate",
+     lambda m: {"expression": f"{m.group(1)}**{m.group(2)}"})
 rule(r"convert\s+([\d.]+)\s+(\w+)\s+to\s+(\w+)", "unit_convert",
      lambda m: {"value": float(m.group(1)), "from_unit": m.group(2), "to_unit": m.group(3)})
 

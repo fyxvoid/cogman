@@ -1,0 +1,37 @@
+[identity]
+name     = "jq"
+version  = "1.7.1"
+category = "tools"
+summary  = "Lightweight and flexible command-line JSON processor"
+
+[identity.source]
+kind = "tarball"
+file = "jq-1.7.1.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xzf tar/jq-1.7.1.tar.gz",
+    "cd jq-1.7.1 && autoreconf -fi",
+    "cd jq-1.7.1 && ./configure --prefix=$PKGROOT/usr --disable-maintainer-mode --with-oniguruma=builtin",
+    "make -C jq-1.7.1 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C jq-1.7.1 install",
+    "strip --strip-unneeded $PKGROOT/usr/bin/jq",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/jq",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

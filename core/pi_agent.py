@@ -1,8 +1,6 @@
 """
-Pi Agent Core — Python port of pi-agent-core (badlogic/pi-mono).
-
-Multi-provider LLM base with event streaming, parallel tool execution,
-abort/steer/follow-up queues, and before/after tool hooks.
+COGMAN cognitive agent core — multi-provider LLM with event streaming,
+parallel tool execution, abort/steer/follow-up queues, and tool hooks.
 
 Provider auto-detection from env:
   ANTHROPIC_API_KEY       → Anthropic (claude-*)
@@ -26,9 +24,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional
 
-log = logging.getLogger("cogman.pi_agent")
+log = logging.getLogger("cogman.core")
 
-# ── Event types (ported from pi-agent-core types.ts) ─────────────────────────
+# ── Event types ───────────────────────────────────────────────────────────────
 
 @dataclass
 class AgentEvent:
@@ -540,11 +538,11 @@ class ProviderRegistry:
         return "\n".join(lines) or "  No providers configured."
 
 
-# ── Pi Agent Core ─────────────────────────────────────────────────────────────
+# ── Cognitive Agent Core ──────────────────────────────────────────────────────
 
-class PiAgentCore:
+class PiAgentCore:  # legacy name kept for compatibility — use agents.loop.CogmanCore
     """
-    Stateful agent loop ported from pi-agent-core.
+    Stateful agent loop — multi-provider LLM + parallel tool execution.
 
     Handles: multi-provider LLM, parallel tool execution, event streaming,
     abort, steer/follow-up queues, before/after tool hooks.
@@ -711,7 +709,7 @@ class PiAgentCore:
                 self._emit(TurnEndEvent(tool_calls_made=0))
                 break
 
-            # Execute tool calls (parallel by default, like pi-agent-core)
+            # Execute tool calls in parallel (ReAct pattern)
             tool_results = self._execute_tools(tool_calls, tools)
             total_tool_calls += len(tool_calls)
             self._emit(TurnEndEvent(tool_calls_made=len(tool_calls)))

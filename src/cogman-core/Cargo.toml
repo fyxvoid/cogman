@@ -1,0 +1,25 @@
+[package]
+name        = "cogman-core"
+version     = "1.0.0"
+edition     = "2021"
+description = "COGMAN core — package manager, process supervisor, service controller"
+
+[[bin]]
+name = "cogman-core"
+path = "src/main.rs"
+
+[dependencies]
+clap       = { version = "4", features = ["derive", "env"] }
+serde      = { version = "1", features = ["derive"] }
+toml       = "0.8"
+libc       = "0.2"
+serde_json = "1"
+
+[features]
+default = []
+
+[profile.release]
+opt-level = 3
+lto       = true
+strip     = true
+panic     = "abort"

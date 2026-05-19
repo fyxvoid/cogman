@@ -1,0 +1,28 @@
+[Unit]
+Description=COGMAN Multi-Channel Gateway (Telegram/Discord/Slack/IRC)
+Documentation=https://github.com/void/cogman
+After=network-online.target cogman.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+WorkingDirectory=COGMAN_DIR
+ExecStart=COGMAN_PYTHON COGMAN_DIR/main.py --gateway
+
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+
+EnvironmentFile=-%h/.config/cogman/env
+Environment=PYTHONUNBUFFERED=1
+Environment=COGMAN_LOCAL_LLM=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cogman-gateway
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

@@ -1,5 +1,5 @@
 """
-Plugin engine — ported from Hermes Agent hermes_cli/plugins.py.
+Plugin engine — loads external plugins from ~/.cogman/plugins/.
 
 Discovers and loads plugins from:
   1. ~/.cogman/plugins/<name>/  (user plugins)

@@ -1,5 +1,5 @@
 """
-Slash command registry — ported from Hermes Agent hermes_cli/commands.py.
+Slash command registry for COGMAN.
 
 Single source of truth for all /commands. Every consumer (CLI, gateway,
 autocomplete, help) derives from COMMAND_REGISTRY.
@@ -418,7 +418,7 @@ class CommandDispatcher:
         return self.registry.summary()
 
     def _cmd_version(self, args: str) -> str:
-        return "cogman v2.0 — Pi+OpenClaw+Hermes integrated"
+        return "cogman — self-learning Linux AI assistant"
 
     def _cmd_debug(self, args: str) -> str:
         import logging

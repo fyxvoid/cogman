@@ -1,12 +1,12 @@
 """
-Orchestrator — OpenClaw 7-stage pipeline + Pi Agent Core + Self-learning.
+Orchestrator — COGMAN 7-stage processing pipeline + self-learning.
 
 Stage 1: Normalize   — clean input, detect slash commands
-Stage 2: Route       — Tier 1 regex → Tier 2 NLP → Pi Agent
+Stage 2: Route       — Tier 1 regex → Tier 2 NLP → Cognitive loop
 Stage 3: Assemble    — memory + environment context + skills
 Stage 4: Plugin hook — pre_llm_call
-Stage 5: Infer       — Pi Agent Core (multi-provider LLM + tool calling)
-Stage 6: ReAct       — parallel tool execution (inside PiAgentCore)
+Stage 5: Infer       — multi-provider LLM + tool calling
+Stage 6: ReAct       — parallel tool execution
 Stage 7: Persist     — save to memory + session + self-learn
 """
 import logging
@@ -54,7 +54,7 @@ from core.tool_registry import ToolRegistry
 from core.safety import log_action
 from core.config import SYSTEM_PROMPT
 from agents.providers import ProviderRegistry
-from agents.loop import PiAgentCore
+from agents.loop import CogmanCore as PiAgentCore
 from memory.context import EnvironmentContext
 
 log = logging.getLogger("cogman.orchestrator")
@@ -89,7 +89,7 @@ class Orchestrator:
 
     def _init_pi(self):
         try:
-            self.pi = PiAgentCore(
+            self.pi = PiAgentCore(  # cognitive agent loop
                 registry=self.registry,
                 memory=self.memory,
                 system_prompt=SYSTEM_PROMPT,
@@ -98,7 +98,7 @@ class Orchestrator:
                 max_tool_turns=25,
             )
             self.pi.subscribe(self._on_pi_event)
-            log.info("Pi Agent Core ready. Providers: %s", self._providers.list_available())
+            log.info("Cognitive loop ready. Providers: %s", self._providers.list_available())
         except Exception as e:
             log.warning("Pi Agent Core init failed: %s", e)
 
@@ -246,16 +246,65 @@ class Orchestrator:
         rest = (m.group(2) or "").strip()
         if rest:
             args = _parse_tool_args(rest)
-            # If no key=value pairs found, detect first param from underlying skill func
+            # If no key=value pairs found, map space-separated tokens to params
             if "args" in args and len(args) == 1:
                 try:
                     import inspect
-                    # For skills, the real func is the underlying skill.func, not the wrapper
+                    params = None
+                    # Try skill func first, then registered tool
                     if self.skill_registry:
                         skill = self.skill_registry.get(tool_name)
                         if skill and skill.func:
-                            first_param = next(iter(inspect.signature(skill.func).parameters), "action")
-                            args = {first_param: args["args"]}
+                            params = list(inspect.signature(skill.func).parameters.keys())
+                    if not params:
+                        tool_obj = self.registry.get(tool_name)
+                        if tool_obj and tool_obj.func:
+                            params = list(inspect.signature(tool_obj.func).parameters.keys())
+
+                    if params:
+                        raw = args["args"]
+                        func = None
+                        if self.skill_registry:
+                            sk = self.skill_registry.get(tool_name)
+                            if sk and sk.func:
+                                func = sk.func
+                        if func is None:
+                            tool_obj = self.registry.get(tool_name)
+                            if tool_obj:
+                                func = tool_obj.func
+
+                        sig = inspect.signature(func) if func else None
+                        type_hints = {}
+                        if sig:
+                            for pname, pobj in sig.parameters.items():
+                                if pobj.annotation is not inspect.Parameter.empty:
+                                    type_hints[pname] = pobj.annotation
+
+                        def _coerce(name, val):
+                            ann = type_hints.get(name)
+                            if ann in (int,):
+                                try: return int(val)
+                                except: pass
+                            if ann in (float,):
+                                try: return float(val)
+                                except: pass
+                            if ann is bool:
+                                return val.lower() in ("true", "1", "yes")
+                            return val
+
+                        if len(params) == 1:
+                            args = {params[0]: _coerce(params[0], raw)}
+                        else:
+                            tokens = raw.split()
+                            if len(tokens) >= len(params):
+                                mapped = {}
+                                for i, p in enumerate(params[:-1]):
+                                    mapped[p] = _coerce(p, tokens[i])
+                                last = params[-1]
+                                mapped[last] = _coerce(last, " ".join(tokens[len(params) - 1:]))
+                                args = mapped
+                            else:
+                                args = {params[i]: _coerce(params[i], tokens[i]) for i in range(len(tokens))}
                 except Exception:
                     pass
         log.debug("Direct tool call: %s(%s)", tool_name, args)
@@ -314,7 +363,7 @@ class Orchestrator:
 
         lines = [
             "─" * 62,
-            " cogman v2  ·  Pi + OpenClaw + Hermes",
+            " cogman  ·  Self-learning Linux AI Assistant",
             "─" * 62,
             f" Tools      : {n_tools}  |  Plugins: {n_plugins}  |  Skills: {n_skills} ({n_builtin} builtin)",
             "",
@@ -324,7 +373,7 @@ class Orchestrator:
             " Routing Tiers:",
             "  [✓] Tier 1  Regex rules (instant)",
             "  [✓] Tier 2  Local NLP (keyword + fuzzy)",
-            f"  [{'✓' if self.pi else '✗'}] Tier 3  Pi Agent Core (multi-provider)",
+            f"  [{'✓' if self.pi else '✗'}] Tier 3  Cognitive loop (multi-provider LLM)",
             "",
             " Self-learning:",
             f"  Learner : {'active' if self.learner else 'not initialized'}",
@@ -336,7 +385,7 @@ class Orchestrator:
             "",
             " Connections:",
             f"  Session : {'✓ FTS5' if self.session_mgr else '✗'}",
-            f"  Gateway : Telegram · Discord · Slack · Webhook  (--gateway)",
+            f"  Gateway : Telegram · Discord · Slack · IRC · Webhook  (--gateway)",
             "",
             " Environment:",
         ]

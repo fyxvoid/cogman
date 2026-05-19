@@ -1,0 +1,23 @@
+[service]
+name    = cogman-api
+command = python3 /home/void/void/cogman/main.py --api
+type    = process
+restart = on-failure
+restart_delay = 5
+
+[env]
+COGMAN_API      = true
+COGMAN_API_HOST = 127.0.0.1
+COGMAN_API_PORT = 7777
+PYTHONUNBUFFERED = 1
+
+[health]
+type     = tcp
+port     = 7777
+interval = 15
+timeout  = 3
+retries  = 3
+
+[policy]
+allow_read  = /home/void/void/cogman, /etc, /usr, /tmp
+allow_write = /home/void/void/cogman/logs, /home/void/void/cogman/data, /tmp

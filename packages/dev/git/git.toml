@@ -1,0 +1,37 @@
+[identity]
+name     = "git"
+version  = "2.47.2"
+category = "dev"
+summary  = "Distributed version control system"
+
+[identity.source]
+kind = "tarball"
+file = "git-2.47.2.tar.xz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "make"
+steps  = [
+    "tar -xJf tar/git-2.47.2.tar.xz",
+    "make -C git-2.47.2 -j$(nproc) prefix=$PKGROOT/usr NO_OPENSSL=1 NO_CURL=1 NO_EXPAT=1 NO_GETTEXT=1 all",
+]
+
+[installer]
+steps = [
+    "make -C git-2.47.2 prefix=$PKGROOT/usr NO_OPENSSL=1 NO_CURL=1 NO_EXPAT=1 NO_GETTEXT=1 install",
+    "strip --strip-unneeded $PKGROOT/usr/bin/git",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/git",
+    "usr/lib/git-core/git-add",
+    "usr/lib/git-core/git-commit",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

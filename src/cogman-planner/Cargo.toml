@@ -1,0 +1,21 @@
+[package]
+name        = "cogman-planner"
+version     = "1.0.0"
+edition     = "2021"
+description = "COGMAN build planner — TOML package metadata to dependency-ordered shell plan"
+
+[[bin]]
+name = "cogman-planner"
+path = "src/main.rs"
+
+[dependencies]
+toml      = "0.8"
+serde     = { version = "1", features = ["derive"] }
+serde_json = "1"
+petgraph  = "0.6"
+clap      = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+lto       = true
+strip     = true

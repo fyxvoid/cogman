@@ -1,7 +1,5 @@
 """
-Pi Agent Core loop — stateful multi-provider agent with parallel tool execution.
-
-Ported from pi-agent-core (badlogic/pi-mono, TypeScript).
+COGMAN cognitive agent loop — stateful multi-provider agent with parallel tool execution.
 """
 from __future__ import annotations
 
@@ -21,12 +19,12 @@ from agents.providers import LLMProvider, ProviderRegistry
 log = logging.getLogger("cogman.loop")
 
 
-class PiAgentCore:
+class CogmanCore:
     """
-    Stateful agent loop with:
+    COGMAN's stateful cognitive loop:
       - Multi-provider LLM (Anthropic / OpenAI / Groq / Gemini / Ollama)
-      - Parallel tool execution
-      - Event streaming
+      - Parallel tool execution (ReAct pattern)
+      - Real-time event streaming
       - Abort / steer / follow-up queues
     """
 

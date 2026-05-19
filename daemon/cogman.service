@@ -1,18 +1,37 @@
 [Unit]
-Description=cogman Linux AI Assistant Daemon
-After=network.target sound.target
+Description=COGMAN Linux AI Assistant
+Documentation=https://github.com/void/cogman
+After=network-online.target sound.target ollama.service
+Wants=network-online.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
-User=%i
-WorkingDirectory=/home/%i/void/projects/cogman
-ExecStart=/usr/bin/python3 /home/%i/void/projects/cogman/main.py --api
+
+# Populated by install_daemon.sh
+WorkingDirectory=COGMAN_DIR
+ExecStart=COGMAN_PYTHON COGMAN_DIR/main.py --api
+ExecReload=/bin/kill -HUP $MAINPID
+
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=10
+
+# Credentials from ~/.config/cogman/env
+EnvironmentFile=-%h/.config/cogman/env
+
+# Sensible defaults (override in env file)
+Environment=COGMAN_API=true
+Environment=COGMAN_LOCAL_LLM=true
+Environment=PYTHONUNBUFFERED=1
+
+# Journal logging
 StandardOutput=journal
 StandardError=journal
-Environment=COGMAN_API=true
-EnvironmentFile=-/home/%i/.config/cogman/env
+SyslogIdentifier=cogman
+
+# Soft resource limits
+LimitNOFILE=65536
 
 [Install]
 WantedBy=default.target

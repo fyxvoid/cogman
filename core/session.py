@@ -1,5 +1,5 @@
 """
-Session manager — inspired by Hermes + OpenClaw session patterns.
+Session manager — FTS5-indexed sessions with branching and rollback.
 
 Features:
   - FTS5 full-text search across all sessions

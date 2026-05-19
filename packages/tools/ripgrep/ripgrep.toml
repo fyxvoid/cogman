@@ -1,0 +1,36 @@
+[identity]
+name     = "ripgrep"
+version  = "14.1.1"
+category = "tools"
+summary  = "Recursively search directories for a regex pattern (fast grep replacement)"
+
+[identity.source]
+kind = "tarball"
+file = "ripgrep-14.1.1.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "rust"
+steps  = [
+    "tar -xzf tar/ripgrep-14.1.1.tar.gz",
+    "cd ripgrep-14.1.1 && cargo build --release --features 'pcre2'",
+]
+
+[installer]
+steps = [
+    "install -Dm755 ripgrep-14.1.1/target/release/rg $PKGROOT/usr/bin/rg",
+    "ripgrep-14.1.1/target/release/rg --generate man > $PKGROOT/usr/share/man/man1/rg.1 2>/dev/null || true",
+    "ripgrep-14.1.1/target/release/rg --generate complete-bash > $PKGROOT/usr/share/bash-completion/completions/rg 2>/dev/null || true",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/rg",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

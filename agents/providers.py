@@ -1,5 +1,5 @@
 """
-Multi-provider LLM abstraction — Pi Agent pattern.
+Multi-provider LLM abstraction for COGMAN.
 
 Auto-detects from env:
   ANTHROPIC_API_KEY       → Anthropic (claude-*)        priority 100

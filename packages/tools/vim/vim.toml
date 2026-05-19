@@ -1,0 +1,37 @@
+[identity]
+name     = "vim"
+version  = "9.1.0"
+category = "tools"
+summary  = "Vi IMproved — highly configurable text editor"
+
+[identity.source]
+kind = "tarball"
+file = "vim-9.1.0.tar.gz"
+
+[identity.depends]
+build   = []
+runtime = []
+
+[build]
+system = "autotools"
+steps  = [
+    "tar -xzf tar/vim-9.1.0.tar.gz",
+    "cd vim-9.1.0 && ./configure --prefix=$PKGROOT/usr --with-features=huge --enable-multibyte --disable-gui --without-x",
+    "make -C vim-9.1.0 -j$(nproc)",
+]
+
+[installer]
+steps = [
+    "make -C vim-9.1.0 DESTDIR=$PKGROOT install",
+    "ln -sf vim $PKGROOT/usr/bin/vi",
+]
+
+[installer.verify]
+expected_files = [
+    "usr/bin/vim",
+    "usr/bin/vi",
+]
+
+[policy.filesystem]
+read  = ["/"]
+write = ["/"]

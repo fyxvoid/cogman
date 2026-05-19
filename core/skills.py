@@ -1,5 +1,5 @@
 """
-Skill system — inspired by Hermes Agent skills + OpenClaw skill extensions.
+Skill system — composable, auto-discoverable skills for COGMAN.
 
 Skills are Python modules stored in ~/.cogman/skills/ that:
   - Auto-load as callable tools at startup
